@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HORIZON | STRATEGIC MONITOR</title>
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        :root { --war: #ff3333; --air: #ffff00; --danger: #ff8800; --bg: #050505; }
+        body { margin: 0; padding: 0; background: var(--bg); color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        
+        /* Header */
+        #header {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            background: rgba(0,0,0,0.9); padding: 15px; border-left: 3px solid #fff;
+            backdrop-filter: blur(10px); pointer-events: none;
+        }
+        h1 { margin: 0; font-size: 18px; letter-spacing: 4px; font-weight: 900; }
+        .live-indicator { font-size: 9px; color: var(--war); margin-top: 5px; animation: blink 2s infinite; }
+
+        /* Dashboard de contrôle */
+        #controls {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            z-index: 10; background: rgba(10,10,10,0.95); padding: 15px 30px;
+            border: 1px solid #333; display: flex; gap: 40px; border-radius: 2px;
+        }
+        .opt { display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 11px; font-weight: bold; letter-spacing: 1px; }
+        .opt input { cursor: pointer; width: 18px; height: 18px; accent-color: #fff; }
+        
+        @keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+    </style>
+</head>
+<body>
+
+    <div id="header">
+        <h1>HORIZON</h1>
+        <div class="live-indicator">● SYNC TEMPS RÉEL ACTIVE</div>
+    </div>
+
+    <div id="controls">
+        <label class="opt" style="color: var(--war);">
+            <input type="checkbox" id="war-check" onchange="refreshMap()"> PAYS EN GUERRE
+        </label>
+        <label class="opt" style="color: var(--air);">
+            <input type="checkbox" id="air-check" onchange="refreshMap()"> ESPACE AÉRIEN FERMÉ
+        </label>
+        <label class="opt" style="color: var(--danger);">
+            <input type="checkbox" id="danger-check" onchange="refreshMap()"> ZONES DE TENSION
+        </label>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        // CONFIGURATION INITIALE
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+            center: [15, 25],
+            zoom: 1.8,
+            antialias: true
+        });
+
+        // Simule les données reçues de l'API (ISO codes pour la stabilité)
+        let horizonData = {
+            war: ['UA', 'RU', 'SD', 'IL', 'PS', 'SY'],
+            airspace: ['UA', 'RU', 'BY', 'SD', 'LY', 'IR'],
+            danger: ['ML', 'BF', 'NE', 'SO', 'YE', 'AF', 'CD']
+        };
+
+        map.on('load', () => {
+            // Ajout de la source mondiale (Geometry)
+            map.addSource('world', {
+                type: 'geojson',
+                data: 'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json'
+            });
+
+            // Couche de remplissage unique et intelligente
+            map.addLayer({
+                id: 'horizon-fill',
+                type: 'fill',
+                source: 'world',
+                paint: {
+                    'fill-color': 'rgba(0,0,0,0)',
+                    'fill-opacity': 0.7
+                }
+            });
+
+            // Bordures fines pour le minimalisme
+            map.addLayer({
+                id: 'horizon-lines',
+                type: 'line',
+                source: 'world',
+                paint: { 'line-color': '#222', 'line-width': 0.8 }
+            });
+
+            refreshMap(); // Premier rendu
+        });
+
+        function refreshMap() {
+            const showWar = document.getElementById('war-check').checked;
+            const showAir = document.getElementById('air-check').checked;
+            const showDanger = document.getElementById('danger-check').checked;
+
+            // Logique de priorité des couleurs
+            map.setPaintProperty('horizon-fill', 'fill-color', [
+                'case',
+                ['all', ['literal', showWar], ['in', ['get', 'id'], ['literal', horizonData.war]]], '#ff3333',
+                ['all', ['literal', showAir], ['in', ['get', 'id'], ['literal', horizonData.airspace]]], '#ffff00',
+                ['all', ['literal', showDanger], ['in', ['get', 'id'], ['literal', horizonData.danger]]], '#ff8800',
+                'rgba(0,0,0,0)'
+            ]);
+        }
+
+        // AUTO-UPDATE : Simule une requête serveur toutes les 30 sec
+        setInterval(async () => {
+            console.log("Horizon : Synchronisation des données...");
+            // Ici tu pourrais ajouter : horizonData = await fetch('/api/live').then(r => r.json());
+            refreshMap();
+        }, 30000);
+
+    </script>
+</body>
+</html>
